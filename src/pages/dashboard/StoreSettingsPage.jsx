@@ -9,6 +9,27 @@ import './StoreSettingsPage.css';
 const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 const CATEGORIES = ['salon','clinic','fitness','consulting','beauty','education','other'];
 
+function compressToBase64(file, maxWidth = 900, quality = 0.75) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onerror = reject;
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > maxWidth) { height = Math.round((height * maxWidth) / width); width = maxWidth; }
+        const canvas = document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function StoreSettingsPage() {
   const { store: authStore, setStore: setAuthStore } = useAuth();
   const [store, setStore] = useState(null);
@@ -51,56 +72,25 @@ export default function StoreSettingsPage() {
     finally { setSaving(false); }
   };
 
-  const WP_USERNAME = "yashkolnure58@gmail.com";
-const WP_APP_PASSWORD = "05mq iTLF UvJU dyaz 7KxQ 8pyc";
-const WP_SITE_URL = "https://website.avenirya.com";
-
-// Generate the Auth header
-const AUTH_HEADER = `Basic ${btoa(`${WP_USERNAME}:${WP_APP_PASSWORD}`)}`;
-const WP_API_URL = `${WP_SITE_URL}/wp-json/wp/v2/media`;
-const uploadFile = async (file, type) => {
-  setSaving(true);
-  const toastId = toast.loading(`Uploading ${type}...`);
-  try {
-    const wpFormData = new FormData();
-    wpFormData.append('file', file);
-    wpFormData.append('title', `${store.name} ${type}`);
-    wpFormData.append('status', 'publish');
-
-    const wpRes = await fetch(WP_API_URL, {
-      method: 'POST',
-      headers: {
-        'Authorization': AUTH_HEADER,
-        'Content-Disposition': `attachment; filename="${file.name}"`,
-      },
-      body: wpFormData,
-    });
-
-    if (!wpRes.ok) throw new Error('WordPress upload failed');
-
-    const wpData = await wpRes.json();
-    const wordpressImageUrl = wpData.source_url; // This is the https://website.avenirya.com/... link
-
-    // CRITICAL: Update your DB with the NEW WordPress URL
-    const res = await storeAPI.updateMyStore({
-      [type]: wordpressImageUrl 
-    });
-
-    // Update local state immediately so the UI changes without a refresh
-    const updatedStore = res.data.store;
-    setStore(updatedStore);
-
-    if (setAuthStore) setAuthStore(updatedStore);
-
-    toast.success(`${type} updated successfully!`, { id: toastId });
-
-  } catch (err) {
-    console.error("Upload Error:", err);
-    toast.error('Upload failed', { id: toastId });
-  } finally {
-    setSaving(false);
-  }
-};
+  const uploadFile = async (file, type) => {
+    setSaving(true);
+    const toastId = toast.loading(`Processing ${type}...`);
+    try {
+      const maxWidth = type === 'logo' ? 400 : 1200;
+      const quality  = type === 'logo' ? 0.80 : 0.75;
+      const base64 = await compressToBase64(file, maxWidth, quality);
+      const res = await storeAPI.updateMyStore({ [type]: base64 });
+      const updatedStore = res.data.store;
+      setStore(updatedStore);
+      if (setAuthStore) setAuthStore(updatedStore);
+      toast.success(`${type === 'logo' ? 'Logo' : 'Banner'} updated!`, { id: toastId });
+    } catch (err) {
+      console.error(err);
+      toast.error('Upload failed', { id: toastId });
+    } finally {
+      setSaving(false);
+    }
+  };
   const copyLink = () => {
     const link = `${window.location.origin}/store/${store?.slug}`;
     navigator.clipboard.writeText(link).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); });
@@ -110,8 +100,6 @@ const uploadFile = async (file, type) => {
   if (!store) return null;
 
   const storeLink = `${window.location.origin}/store/${store.slug}`;
-  const BASE_URL = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5003';
-
   return (
     <div style={{maxWidth:780}}>
       <div className="page-header">
@@ -219,49 +207,29 @@ const uploadFile = async (file, type) => {
         <div className="card animate-fadeIn">
           <div className="media-section">
             <div className="media-label">Store Logo</div>
- <div className="media-preview logo-preview">
-  {store.logo ? (
-    <img 
-      // If it's a full URL (WP), use it. Otherwise, don't fallback to localhost in production.
-      src={store.logo.startsWith('http') ? store.logo : `${BASE_URL}${store.logo}`} 
-      alt="Logo" 
-      style={{width:'100%',height:'100%',objectFit:'cover'}}
-      onError={(e) => {
-        e.target.onerror = null;
-        e.target.src = "https://placehold.co/100x100?text=No+Image";
-      }}
-    />
-  ) : (
-    <div className="media-placeholder">{store.name?.[0]}</div>
-  )}
-</div>
-            <input ref={logoRef} type="file" accept="image/*" style={{display:'none'}} onChange={e => e.target.files[0] && uploadFile(e.target.files[0],'logo')} />
-            <button className="btn btn-outline btn-sm" onClick={() => logoRef.current.click()}>
-              <Upload size={14}/> Upload Logo
+            <div className="media-preview logo-preview">
+              {store.logo
+                ? <img src={store.logo} alt="Logo" style={{width:'100%',height:'100%',objectFit:'cover'}} />
+                : <div className="media-placeholder">{store.name?.[0]}</div>
+              }
+            </div>
+            <input ref={logoRef} type="file" accept="image/*" style={{display:'none'}} onChange={e => e.target.files[0] && uploadFile(e.target.files[0], 'logo')} />
+            <button className="btn btn-outline btn-sm" onClick={() => logoRef.current.click()} disabled={saving}>
+              <Upload size={14}/> {saving ? 'Processing…' : 'Upload Logo'}
             </button>
           </div>
           <div className="divider"/>
           <div className="media-section">
             <div className="media-label">Store Banner</div>
-  <div className="media-preview banner-preview">
-    {store.banner ? (
-      <img 
-        // Check if banner starts with http. If so, use it directly.
-        src={store.banner.startsWith('http') ? store.banner : `${BASE_URL}${store.banner}`} 
-        alt="Banner" 
-        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-        onError={(e) => {
-          e.target.onerror = null; 
-          e.target.src = "https://placehold.co/600x200?text=Image+Load+Error";
-        }}
-      />
-    ) : (
-      <div className="media-placeholder" style={{ fontSize: '1.2rem' }}>No banner uploaded</div>
-    )}
-  </div>
-            <input ref={bannerRef} type="file" accept="image/*" style={{display:'none'}} onChange={e => e.target.files[0] && uploadFile(e.target.files[0],'banner')} />
-            <button className="btn btn-outline btn-sm" onClick={() => bannerRef.current.click()}>
-              <Upload size={14}/> Upload Banner
+            <div className="media-preview banner-preview">
+              {store.banner
+                ? <img src={store.banner} alt="Banner" style={{width:'100%',height:'100%',objectFit:'cover'}} />
+                : <div className="media-placeholder" style={{fontSize:'1.2rem'}}>No banner uploaded</div>
+              }
+            </div>
+            <input ref={bannerRef} type="file" accept="image/*" style={{display:'none'}} onChange={e => e.target.files[0] && uploadFile(e.target.files[0], 'banner')} />
+            <button className="btn btn-outline btn-sm" onClick={() => bannerRef.current.click()} disabled={saving}>
+              <Upload size={14}/> {saving ? 'Processing…' : 'Upload Banner'}
             </button>
           </div>
         </div>
