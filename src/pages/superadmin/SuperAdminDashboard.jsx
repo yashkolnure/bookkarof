@@ -42,7 +42,7 @@ export default function SuperAdminDashboard() {
   const [filterPlan, setFilterPlan] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
   const [selectedAccount, setSelectedAccount] = useState(null);
-  const [modal, setModal] = useState(null); // 'plan' | 'extend' | 'revoke'
+  const [modal, setModal] = useState(null); // 'plan' | 'extend' | 'revoke' | 'edit'
   const [modalData, setModalData] = useState({});
   const [actionLoading, setActionLoading] = useState(false);
 
@@ -88,8 +88,34 @@ export default function SuperAdminDashboard() {
 
   const openModal = (type, account) => {
     setSelectedAccount(account);
-    setModalData({});
+    if (type === 'edit') {
+      setModalData({
+        storeName:  account.storeName  || '',
+        storePhone: account.storePhone || '',
+        storeEmail: account.storeEmail || '',
+        userName:   account.user?.name  || '',
+        userEmail:  account.user?.email || '',
+        userPhone:  account.user?.phone || '',
+        newPassword: '',
+      });
+    } else {
+      setModalData({});
+    }
     setModal(type);
+  };
+
+  const handleEditAccount = async () => {
+    setActionLoading(true);
+    try {
+      await superAdminAPI.editAccount(selectedAccount.storeId, modalData);
+      toast.success('Account updated successfully');
+      closeModal();
+      loadData();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Update failed');
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   const closeModal = () => { setModal(null); setSelectedAccount(null); setModalData({}); };
@@ -265,6 +291,9 @@ export default function SuperAdminDashboard() {
                     <td><StatusBadge account={account} /></td>
                     <td>
                       <div className="sa-actions">
+                        <button className="sa-action-btn sa-btn-edit" onClick={() => openModal('edit', account)} title="Edit Info">
+                          ✏️ Edit
+                        </button>
                         <button className="sa-action-btn sa-btn-plan" onClick={() => openModal('plan', account)} title="Change Plan">
                           📋 Plan
                         </button>
@@ -353,6 +382,59 @@ export default function SuperAdminDashboard() {
               <button className="sa-modal-cancel" onClick={closeModal}>Cancel</button>
               <button className="sa-modal-confirm" onClick={handleExtend} disabled={actionLoading}>
                 {actionLoading ? 'Saving...' : 'Extend Expiry'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Account Modal */}
+      {modal === 'edit' && (
+        <div className="sa-modal-overlay" onClick={closeModal}>
+          <div className="sa-modal" onClick={(e) => e.stopPropagation()} style={{maxWidth:520}}>
+            <h3>✏️ Edit Account</h3>
+            <p className="sa-modal-subtitle">Store: <strong>{selectedAccount?.storeName}</strong></p>
+
+            <div style={{fontWeight:600,fontSize:13,marginBottom:8,marginTop:4,color:'#64748b',textTransform:'uppercase',letterSpacing:'0.04em'}}>Store Info</div>
+            <div className="sa-field">
+              <label>Store Name</label>
+              <input className="sa-input" value={modalData.storeName||''} onChange={e=>setModalData(p=>({...p,storeName:e.target.value}))} placeholder="Store name" />
+            </div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+              <div className="sa-field">
+                <label>Store Phone</label>
+                <input className="sa-input" value={modalData.storePhone||''} onChange={e=>setModalData(p=>({...p,storePhone:e.target.value}))} placeholder="+91 ..." />
+              </div>
+              <div className="sa-field">
+                <label>Store Email</label>
+                <input className="sa-input" type="email" value={modalData.storeEmail||''} onChange={e=>setModalData(p=>({...p,storeEmail:e.target.value}))} placeholder="store@..." />
+              </div>
+            </div>
+
+            <div style={{fontWeight:600,fontSize:13,marginBottom:8,marginTop:16,color:'#64748b',textTransform:'uppercase',letterSpacing:'0.04em'}}>Account / Login</div>
+            <div className="sa-field">
+              <label>Owner Name</label>
+              <input className="sa-input" value={modalData.userName||''} onChange={e=>setModalData(p=>({...p,userName:e.target.value}))} placeholder="Full name" />
+            </div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+              <div className="sa-field">
+                <label>Login Email</label>
+                <input className="sa-input" type="email" value={modalData.userEmail||''} onChange={e=>setModalData(p=>({...p,userEmail:e.target.value}))} placeholder="login@..." />
+              </div>
+              <div className="sa-field">
+                <label>Phone</label>
+                <input className="sa-input" value={modalData.userPhone||''} onChange={e=>setModalData(p=>({...p,userPhone:e.target.value}))} placeholder="+91 ..." />
+              </div>
+            </div>
+            <div className="sa-field">
+              <label>New Password <span style={{fontWeight:400,color:'#94a3b8'}}>(leave blank to keep current)</span></label>
+              <input className="sa-input" type="password" value={modalData.newPassword||''} onChange={e=>setModalData(p=>({...p,newPassword:e.target.value}))} placeholder="Min 6 characters" />
+            </div>
+
+            <div className="sa-modal-actions">
+              <button className="sa-modal-cancel" onClick={closeModal}>Cancel</button>
+              <button className="sa-modal-confirm" onClick={handleEditAccount} disabled={actionLoading}>
+                {actionLoading ? 'Saving...' : 'Save Changes'}
               </button>
             </div>
           </div>

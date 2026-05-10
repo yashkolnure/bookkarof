@@ -377,7 +377,7 @@ export default function ServicesPage() {
   useEffect(() => { load(); }, []);
 
   const handleDelete = async (id) => {
-    if (!confirm('Deactivate this service?')) return;
+    if (!confirm('Permanently delete this service? This cannot be undone.')) return;
     setDeletingId(id);
     try { await serviceAPI.delete(id); toast.success('Service deactivated'); load(); }
     catch { toast.error('Failed'); } finally { setDeletingId(null); }

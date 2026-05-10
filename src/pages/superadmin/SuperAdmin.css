@@ -357,6 +357,7 @@
   white-space: nowrap;
 }
 .sa-action-btn:hover { opacity: 0.85; transform: translateY(-1px); }
+.sa-btn-edit { background: rgba(234,179,8,0.15); color: var(--sa-yellow); }
 .sa-btn-plan { background: rgba(108,99,255,0.2); color: var(--sa-primary); }
 .sa-btn-extend { background: rgba(59,130,246,0.2); color: var(--sa-blue); }
 .sa-btn-suspend { background: rgba(239,68,68,0.15); color: var(--sa-red); }

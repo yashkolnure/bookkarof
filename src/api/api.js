@@ -118,4 +118,5 @@ export const superAdminAPI = {
   extendExpiry: (storeId, data) => superAdminApi.put(`/superadmin/accounts/${storeId}/extend`, data),
   revokeAccount: (storeId, action) => superAdminApi.put(`/superadmin/accounts/${storeId}/revoke`, { action }),
   cancelSubscription: (storeId) => superAdminApi.put(`/superadmin/accounts/${storeId}/cancel-subscription`),
+  editAccount: (storeId, data) => superAdminApi.put(`/superadmin/accounts/${storeId}/edit`, data),
 };
