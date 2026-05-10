@@ -123,8 +123,8 @@ export default function BookingPage() {
   };
 
   const handleSubmit = async () => {
-    const { name, email, phone } = customer;
-    if (!name || !email || !phone) { toast.error('Please fill all required fields'); return; }
+    const { name, phone } = customer;
+    if (!name || !phone) { toast.error('Please fill in your name and phone number'); return; }
     setSubmitting(true);
     try {
       const storeId = typeof store === 'object' ? store._id : store;
@@ -250,9 +250,9 @@ export default function BookingPage() {
                   </div>
                 </div>
                 <div className="form-group">
-                  <label className="form-label"><Mail size={13}/> Email Address *</label>
+                  <label className="form-label"><Mail size={13}/> Email Address <span style={{fontWeight:400,color:'var(--ink-muted)'}}>(optional)</span></label>
                   <input type="email" className="form-input" placeholder="jane@example.com" value={customer.email}
-                    onChange={e => setCustomer(p=>({...p,email:e.target.value}))} required />
+                    onChange={e => setCustomer(p=>({...p,email:e.target.value}))} />
                 </div>
                 <div className="form-group">
                   <label className="form-label"><FileText size={13}/> Notes (optional)</label>
@@ -281,7 +281,7 @@ export default function BookingPage() {
                 <div className="booking-step-footer">
                   <button className="btn btn-outline" onClick={() => setStep(1)}><ChevronLeft size={16}/> Back</button>
                   <button className="btn btn-primary btn-lg" onClick={() => setStep(3)}
-                    disabled={!customer.name || !customer.email || !customer.phone}>
+                    disabled={!customer.name || !customer.phone}>
                     Review Booking <ChevronRight size={16}/>
                   </button>
                 </div>
@@ -305,10 +305,12 @@ export default function BookingPage() {
                     <span>Name</span>
                     <span>{customer.name}</span>
                   </div>
-                  <div className="review-row">
-                    <span>Email</span>
-                    <span>{customer.email}</span>
-                  </div>
+                  {customer.email && (
+                    <div className="review-row">
+                      <span>Email</span>
+                      <span>{customer.email}</span>
+                    </div>
+                  )}
                   <div className="review-row">
                     <span>Phone</span>
                     <span>{customer.phone}</span>
@@ -348,7 +350,7 @@ export default function BookingPage() {
           <div className="booking-done animate-fadeUp">
             <div className="done-icon">✓</div>
             <h2>Booking Confirmed!</h2>
-            <p>Your appointment has been successfully booked. You'll receive a confirmation email at <strong>{appointment.customer.email}</strong>.</p>
+            <p>Your appointment has been successfully booked.{appointment.customer.email && <> You'll receive a confirmation at <strong>{appointment.customer.email}</strong>.</>}</p>
             <div className="done-details card">
               <div className="review-row"><span>Appointment ID</span><strong>{appointment.appointmentId}</strong></div>
               <div className="review-row"><span>Service</span><span>{service.name}</span></div>

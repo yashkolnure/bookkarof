@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { storeAPI } from '../../api/api';
 import { useAuth } from '../../context/AuthContext';
-import { Upload, Link as LinkIcon, CreditCard, Copy, Check } from 'lucide-react';
+import { Upload, Link as LinkIcon, CreditCard, Copy, Check, Star } from 'lucide-react';
 import toast from 'react-hot-toast';
 import './ServicesPage.css';
 import './StoreSettingsPage.css';
@@ -41,7 +41,8 @@ export default function StoreSettingsPage() {
         phone: store.phone, email: store.email, website: store.website,
         address: store.address, socialLinks: store.socialLinks,
         businessHours: store.businessHours, currency: store.currency,
-        theme: store.theme,
+        theme: store.theme, googleReviewLink: store.googleReviewLink,
+        autoAccept: store.autoAccept,
       });
       setStore(res.data.store);
       if (setAuthStore) setAuthStore(res.data.store);
@@ -133,7 +134,7 @@ const uploadFile = async (file, type) => {
       </div>
 
       <div className="tabs">
-        {[['general','General'],['media','Media'],['hours','Business Hours'],['payment','Payment'],['theme','Theme']].map(([k,l]) => (
+        {[['general','General'],['media','Media'],['hours','Business Hours'],['bookings','Bookings'],['payment','Payment'],['theme','Theme']].map(([k,l]) => (
           <button key={k} className={`tab ${tab===k?'active':''}`} onClick={() => setTab(k)}>{l}</button>
         ))}
       </div>
@@ -201,6 +202,11 @@ const uploadFile = async (file, type) => {
           <div className="form-row">
             <div className="form-group"><label className="form-label">Instagram</label><input className="form-input" placeholder="https://instagram.com/..." value={store.socialLinks?.instagram||''} onChange={e=>setNested('socialLinks','instagram',e.target.value)} /></div>
             <div className="form-group"><label className="form-label">Facebook</label><input className="form-input" placeholder="https://facebook.com/..." value={store.socialLinks?.facebook||''} onChange={e=>setNested('socialLinks','facebook',e.target.value)} /></div>
+          </div>
+          <div className="form-group">
+            <label className="form-label"><Star size={13} style={{verticalAlign:'middle',marginRight:4}}/>Google Review Link</label>
+            <input className="form-input" placeholder="https://g.page/r/..." value={store.googleReviewLink||''} onChange={e=>set('googleReviewLink',e.target.value)} />
+            <p style={{fontSize:12,color:'var(--ink-muted)',marginTop:4}}>Paste your Google Maps / Google Business review link. A button will appear on your store page.</p>
           </div>
           <button className="btn btn-primary" onClick={saveGeneral} disabled={saving}>
             {saving ? <span className="spinner"/> : 'Save Changes'}
@@ -292,6 +298,31 @@ const uploadFile = async (file, type) => {
           </div>
           <button className="btn btn-primary" style={{marginTop:24}} onClick={saveGeneral} disabled={saving}>
             {saving ? <span className="spinner"/> : 'Save Hours'}
+          </button>
+        </div>
+      )}
+
+      {/* Bookings */}
+      {tab === 'bookings' && (
+        <div className="card animate-fadeIn">
+          <h3 style={{fontSize:'1rem',fontWeight:700,marginBottom:4}}>Booking Settings</h3>
+          <p style={{color:'var(--ink-muted)',fontSize:14,marginBottom:24}}>Control how appointments are handled when customers book.</p>
+          <div className="payment-toggle-row" style={{marginBottom:24}}>
+            <div>
+              <div style={{fontWeight:600,marginBottom:4}}>Auto-Accept Appointments</div>
+              <div style={{fontSize:13,color:'var(--ink-muted)'}}>When enabled, bookings are automatically confirmed — no manual approval needed</div>
+            </div>
+            <button className={`toggle-btn ${store.autoAccept ? 'on' : ''}`} onClick={() => set('autoAccept', !store.autoAccept)}>
+              <div className="toggle-thumb"/>
+            </button>
+          </div>
+          <div style={{padding:'12px 16px',borderRadius:10,background:'var(--bg-soft)',fontSize:13,color:'var(--ink-muted)',marginBottom:24}}>
+            {store.autoAccept
+              ? '✅ New bookings will be confirmed immediately without your review.'
+              : '⏳ New bookings will be in Pending status until you accept them from the Appointments page.'}
+          </div>
+          <button className="btn btn-primary" onClick={saveGeneral} disabled={saving}>
+            {saving ? <span className="spinner"/> : 'Save Booking Settings'}
           </button>
         </div>
       )}

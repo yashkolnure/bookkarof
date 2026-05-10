@@ -456,6 +456,12 @@ export default function StorePage() {
     </a>
   )}
 
+  {store.googleReviewLink && (
+    <a href={store.googleReviewLink} target="_blank" rel="noopener noreferrer" className="sp-contact-btn" style={{background:'#4285F4',color:'#fff',borderColor:'#4285F4'}}>
+      <Star size={14}/> <span>Leave a Google Review</span> <ExternalLink size={12}/>
+    </a>
+  )}
+
   {(store.socialLinks?.instagram || store.socialLinks?.facebook || store.socialLinks?.twitter) && (
     <div className="sp-social-row">
 

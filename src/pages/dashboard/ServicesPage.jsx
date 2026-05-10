@@ -1,15 +1,10 @@
 import { useEffect, useState, useRef } from 'react';
 import { serviceAPI } from '../../api/api';
-import { Plus, Edit2, Trash2, Clock, Tag, Star, ChevronDown, ChevronUp, X, Check, Image as ImageIcon, Link as LinkIcon } from 'lucide-react';
+import { Plus, Edit2, Trash2, Clock, Tag, Star, ChevronDown, ChevronUp, X, Check, Image as ImageIcon, Zap } from 'lucide-react';
 import toast from 'react-hot-toast';
 import './ServicesPage.css';
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const WP_USERNAME = "yashkolnure58@gmail.com";
-const WP_APP_PASSWORD = "05mq iTLF UvJU dyaz 7KxQ 8pyc";
-const WP_SITE_URL = "https://website.avenirya.com";
-const AUTH_HEADER = `Basic ${btoa(`${WP_USERNAME}:${WP_APP_PASSWORD}`)}`;
-const WP_API_URL = `${WP_SITE_URL}/wp-json/wp/v2/media`;
 const emptyService = {
   name: '', description: '', category: '', tags: '', price: '',
   discountedPrice: '', duration: 60, isActive: true, images: [],
@@ -18,16 +13,75 @@ const emptyService = {
 };
 
 /* ── Time Slot Editor ── */
-function TimeSlotEditor({ dayAvail, onChange }) {
+function timeToMins(t) {
+  const [h, m] = t.split(':').map(Number);
+  return h * 60 + m;
+}
+function minsToTime(m) {
+  return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+}
+
+function TimeSlotEditor({ dayAvail, onChange, serviceDuration }) {
+  const [dayStart, setDayStart] = useState('09:00');
+  const [dayEnd, setDayEnd]   = useState('18:00');
+  const [session, setSession] = useState(serviceDuration || 60);
+  const [breakMins, setBreak] = useState(0);
   const [newStart, setNewStart] = useState('09:00');
-  const [newEnd, setNewEnd] = useState('09:30');
-  const addSlot = () => {
+  const [newEnd, setNewEnd]   = useState('09:30');
+
+  const removeSlot = (i) => onChange({ ...dayAvail, slots: dayAvail.slots.filter((_, idx) => idx !== i) });
+
+  const generateSlots = () => {
+    const startM = timeToMins(dayStart);
+    const endM   = timeToMins(dayEnd);
+    const step   = Number(session) + Number(breakMins);
+    if (step <= 0 || startM >= endM) { toast.error('Invalid time range or session duration'); return; }
+    const slots = [];
+    for (let cur = startM; cur + Number(session) <= endM; cur += step) {
+      slots.push({ startTime: minsToTime(cur), endTime: minsToTime(cur + Number(session)) });
+    }
+    if (!slots.length) { toast.error('No slots fit in this range'); return; }
+    onChange({ ...dayAvail, slots });
+    toast.success(`Generated ${slots.length} slot${slots.length !== 1 ? 's' : ''}`);
+  };
+
+  const addSingle = () => {
     if (!newStart || !newEnd) return;
+    if (timeToMins(newEnd) <= timeToMins(newStart)) { toast.error('End time must be after start'); return; }
     onChange({ ...dayAvail, slots: [...dayAvail.slots, { startTime: newStart, endTime: newEnd }] });
   };
-  const removeSlot = (i) => onChange({ ...dayAvail, slots: dayAvail.slots.filter((_, idx) => idx !== i) });
+
   return (
     <div className="slot-editor">
+      {/* Smart generator */}
+      <div style={{background:'var(--bg-soft)',borderRadius:8,padding:'10px 12px',marginBottom:10}}>
+        <div style={{fontSize:12,fontWeight:600,color:'var(--ink-muted)',marginBottom:8,display:'flex',alignItems:'center',gap:6}}>
+          <Zap size={12}/> Auto-generate slots
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:8}}>
+          <div>
+            <div style={{fontSize:11,color:'var(--ink-muted)',marginBottom:3}}>Day starts</div>
+            <input type="time" className="form-input" value={dayStart} onChange={e=>setDayStart(e.target.value)} style={{fontSize:13}} />
+          </div>
+          <div>
+            <div style={{fontSize:11,color:'var(--ink-muted)',marginBottom:3}}>Day ends</div>
+            <input type="time" className="form-input" value={dayEnd} onChange={e=>setDayEnd(e.target.value)} style={{fontSize:13}} />
+          </div>
+          <div>
+            <div style={{fontSize:11,color:'var(--ink-muted)',marginBottom:3}}>Session (min)</div>
+            <input type="number" className="form-input" value={session} min={5} onChange={e=>setSession(e.target.value)} style={{fontSize:13}} />
+          </div>
+          <div>
+            <div style={{fontSize:11,color:'var(--ink-muted)',marginBottom:3}}>Break (min)</div>
+            <input type="number" className="form-input" value={breakMins} min={0} onChange={e=>setBreak(e.target.value)} style={{fontSize:13}} />
+          </div>
+        </div>
+        <button className="btn btn-primary btn-sm" style={{width:'100%'}} onClick={generateSlots}>
+          <Zap size={12}/> Generate Slots
+        </button>
+      </div>
+
+      {/* Existing slots */}
       <div className="slot-editor-slots">
         {dayAvail.slots.map((s, i) => (
           <div key={i} className="slot-chip">
@@ -36,86 +90,85 @@ function TimeSlotEditor({ dayAvail, onChange }) {
           </div>
         ))}
       </div>
+
+      {/* Manual add */}
+      <div style={{fontSize:11,color:'var(--ink-muted)',margin:'8px 0 4px'}}>Or add a single slot manually:</div>
       <div className="slot-add-row">
         <input type="time" className="form-input" value={newStart} onChange={e => setNewStart(e.target.value)} style={{ flex: 1 }} />
         <span>to</span>
         <input type="time" className="form-input" value={newEnd} onChange={e => setNewEnd(e.target.value)} style={{ flex: 1 }} />
-        <button className="btn btn-outline btn-sm" onClick={addSlot}>Add</button>
+        <button className="btn btn-outline btn-sm" onClick={addSingle}>Add</button>
       </div>
     </div>
   );
 }
+async function compressToBase64(file, maxWidth = 900, quality = 0.72) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onerror = reject;
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > maxWidth) { height = Math.round((height * maxWidth) / width); width = maxWidth; }
+        const canvas = document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 function ImageManager({ images, onChange }) {
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef();
 
-const handleFileUpload = async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  if (images.length >= 8) { toast.error('Maximum 8 images allowed'); return; }
-
-  setUploading(true);
-  const toastId = toast.loading('Uploading image...');
-
-  try {
-    const wpFormData = new FormData();
-    wpFormData.append('file', file);
-    wpFormData.append('title', file.name);   // ← add title like store page does
-    wpFormData.append('status', 'publish');
-
-    const wpRes = await fetch(WP_API_URL, {
-      method: 'POST',
-      headers: {
-        'Authorization': AUTH_HEADER,
-        'Content-Disposition': `attachment; filename="${file.name}"`,
-        // ❌ DO NOT set Content-Type here — browser sets it with boundary automatically
-      },
-      body: wpFormData,
-    });
-
-    if (!wpRes.ok) {
-      const errBody = await wpRes.json();
-      console.error('WP Error:', errBody);
-      throw new Error('WordPress upload failed');
+  const handleFileUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (images.length >= 8) { toast.error('Maximum 8 images allowed'); return; }
+    setUploading(true);
+    try {
+      const base64 = await compressToBase64(file);
+      onChange([...images, base64]);
+      toast.success('Image added!');
+    } catch {
+      toast.error('Could not process image');
+    } finally {
+      setUploading(false);
+      e.target.value = '';
     }
-
-    const wpData = await wpRes.json();
-    onChange([...images, wpData.source_url]);
-    toast.success('Image added!', { id: toastId });
-  } catch (err) {
-    console.error(err);
-    toast.error('Upload failed', { id: toastId });
-  } finally {
-    setUploading(false);
-    e.target.value = '';
-  }
-};
+  };
 
   const removeImage = (idx) => onChange(images.filter((_, i) => i !== idx));
 
   const setAsCover = (idx) => {
     const arr = [...images];
     const [selected] = arr.splice(idx, 1);
-    arr.unshift(selected); // Move to front
+    arr.unshift(selected);
     onChange(arr);
   };
 
   return (
     <div className="image-manager">
       <div className="wp-upload-zone" onClick={() => !uploading && fileInputRef.current.click()}>
-        <input 
-          type="file" 
-          ref={fileInputRef} 
-          style={{ display: 'none' }} 
-          accept="image/*" 
-          onChange={handleFileUpload} 
+        <input
+          type="file"
+          ref={fileInputRef}
+          style={{ display: 'none' }}
+          accept="image/*"
+          onChange={handleFileUpload}
         />
         {uploading ? (
-          <div className="spinner" />
+          <><div className="spinner" /><span style={{marginTop:8,fontSize:13,color:'var(--ink-muted)'}}>Processing…</span></>
         ) : (
           <>
             <Plus size={24} />
-            <span>Upload Image to WordPress</span>
+            <span>Add Image</span>
           </>
         )}
       </div>
@@ -291,7 +344,7 @@ function ServiceModal({ service, onClose, onSaved }) {
                     </button>
                     <span className="avail-day-name">{da.day}</span>
                   </div>
-                  {da.isAvailable && <TimeSlotEditor dayAvail={da} onChange={(val) => updateDay(da.day, val)} />}
+                  {da.isAvailable && <TimeSlotEditor dayAvail={da} onChange={(val) => updateDay(da.day, val)} serviceDuration={Number(form.duration) || 60} />}
                 </div>
               ))}
             </div>
